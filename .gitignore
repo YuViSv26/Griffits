@@ -1,0 +1,11 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+*.db
+.idea/
+.vscode/
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+backend/data/griffiths_pdf_extract.txt
