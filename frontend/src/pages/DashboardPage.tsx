@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { AssessmentWizard } from "../components/AssessmentWizard";
 import { ChatWindow } from "../components/ChatWindow";
@@ -8,10 +8,40 @@ import { ProgressPanel } from "../components/ProgressPanel";
 import { Sidebar, type Tab } from "../components/Sidebar";
 import { api } from "../api/client";
 
+function readPaymentParams() {
+  const params = new URLSearchParams(window.location.search);
+  return {
+    tab: params.get("tab"),
+    returnFromPayment: params.get("from_payment") === "1",
+    paymentId: params.get("payment_id") ?? undefined,
+  };
+}
+
 export function DashboardPage() {
   const { user, logout, refresh } = useAuth();
-  const [tab, setTab] = useState<Tab>("chat");
+  const initial = readPaymentParams();
+  const [tab, setTab] = useState<Tab>(
+    initial.tab === "game" ? "game" : "chat"
+  );
+  const [returnFromPayment, setReturnFromPayment] = useState(
+    initial.returnFromPayment
+  );
+  const [paymentId, setPaymentId] = useState<string | undefined>(
+    initial.paymentId
+  );
   const [testKey, setTestKey] = useState(0);
+
+  useEffect(() => {
+    const { tab: tabParam, returnFromPayment: fromPayment, paymentId: pid } =
+      readPaymentParams();
+    if (tabParam === "game") setTab("game");
+    if (fromPayment) setReturnFromPayment(true);
+    if (pid) setPaymentId(pid);
+
+    if (tabParam || fromPayment || pid) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   const renderContent = () => {
     switch (tab) {
@@ -20,7 +50,10 @@ export function DashboardPage() {
       case "game":
         return (
           <div className="overflow-y-auto p-4 md:p-6">
-            <GamePanel />
+            <GamePanel
+              returnFromPayment={returnFromPayment}
+              paymentId={paymentId}
+            />
           </div>
         );
       case "test":

@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.config import get_settings
 from backend.db import init_db, seed_games_if_empty
-from backend.routers import assessment, auth, chat, games, init, profile
+from backend.routers import assessment, auth, chat, games, init, payments, profile
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +41,7 @@ def create_app() -> FastAPI:
     app.include_router(profile.router)
     app.include_router(assessment.router)
     app.include_router(games.router)
+    app.include_router(payments.router)
     app.include_router(chat.router)
 
     @app.get("/health")

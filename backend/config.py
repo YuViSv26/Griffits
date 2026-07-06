@@ -27,6 +27,9 @@ class Settings:
     smtp_password: str
     smtp_from: str
     smtp_use_ssl: bool
+    yookassa_shop_id: str
+    yookassa_secret_key: str
+    plan_pdf_price_rub: int
 
 
 @lru_cache
@@ -57,4 +60,7 @@ def get_settings() -> Settings:
         smtp_password=os.getenv("SMTP_PASSWORD", "").strip(),
         smtp_from=os.getenv("SMTP_FROM", "").strip(),
         smtp_use_ssl=os.getenv("SMTP_USE_SSL", "false").lower() == "true",
+        yookassa_shop_id=os.getenv("YOOKASSA_SHOP_ID", "").strip(),
+        yookassa_secret_key=os.getenv("YOOKASSA_SECRET_KEY", "").strip(),
+        plan_pdf_price_rub=int(os.getenv("PLAN_PDF_PRICE_RUB", "199")),
     )

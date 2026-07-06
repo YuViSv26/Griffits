@@ -4,6 +4,14 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  optimizeDeps: {
+    include: ["html2canvas-pro"],
+  },
+  resolve: {
+    alias: {
+      html2canvas: "html2canvas-pro",
+    },
+  },
   server: {
     port: 5173,
     proxy: {

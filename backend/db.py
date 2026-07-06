@@ -111,6 +111,22 @@ class PasswordResetToken(Base):
     )
 
 
+class PlanPayment(Base):
+    __tablename__ = "plan_payments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    yookassa_payment_id: Mapped[str] = mapped_column(unique=True, index=True)
+    amount_rub: Mapped[int] = mapped_column()
+    status: Mapped[str] = mapped_column(default="pending")
+    product: Mapped[str] = mapped_column(default="plan_pdf")
+    pdf_downloaded: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(timezone.utc)
+    )
+    paid_at: Mapped[datetime | None] = mapped_column(default=None)
+
+
 @asynccontextmanager
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     async with async_session() as session:
@@ -409,3 +425,75 @@ async def mark_reset_token_used(token: str) -> None:
         if row:
             row.used = True
             await session.flush()
+
+
+async def save_plan_payment(
+    user_id: int,
+    yookassa_payment_id: str,
+    amount_rub: int,
+    status: str,
+    product: str,
+) -> PlanPayment:
+    async with get_session() as session:
+        row = PlanPayment(
+            user_id=user_id,
+            yookassa_payment_id=yookassa_payment_id,
+            amount_rub=amount_rub,
+            status=status,
+            product=product,
+        )
+        session.add(row)
+        await session.flush()
+        return row
+
+
+async def get_plan_payment(yookassa_payment_id: str) -> PlanPayment | None:
+    async with get_session() as session:
+        result = await session.execute(
+            select(PlanPayment).where(
+                PlanPayment.yookassa_payment_id == yookassa_payment_id
+            )
+        )
+        return result.scalar_one_or_none()
+
+
+async def get_latest_plan_payment(user_id: int) -> PlanPayment | None:
+    async with get_session() as session:
+        result = await session.execute(
+            select(PlanPayment)
+            .where(PlanPayment.user_id == user_id)
+            .order_by(PlanPayment.created_at.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
+
+async def update_plan_payment_status(
+    yookassa_payment_id: str,
+    status: str,
+    paid_at: datetime | None = None,
+) -> PlanPayment:
+    async with get_session() as session:
+        result = await session.execute(
+            select(PlanPayment).where(
+                PlanPayment.yookassa_payment_id == yookassa_payment_id
+            )
+        )
+        row = result.scalar_one()
+        row.status = status
+        if paid_at is not None:
+            row.paid_at = paid_at
+        await session.flush()
+        return row
+
+
+async def mark_plan_payment_downloaded(yookassa_payment_id: str) -> None:
+    async with get_session() as session:
+        result = await session.execute(
+            select(PlanPayment).where(
+                PlanPayment.yookassa_payment_id == yookassa_payment_id
+            )
+        )
+        row = result.scalar_one()
+        row.pdf_downloaded = True
+        await session.flush()

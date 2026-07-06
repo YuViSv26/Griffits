@@ -12,7 +12,30 @@
 
 ## Быстрый старт
 
-### 1. Настройка
+### Вариант A: Docker (всё сразу)
+
+```cmd
+cd C:\Users\Юлия\Projects\griffiths-baby-bot
+copy .env.example .env
+:: заполните .env: JWT_SECRET, NORDROUTER_API_KEY и др.
+start-docker.cmd
+```
+
+Или вручную:
+
+```cmd
+docker compose up --build
+```
+
+- Сайт: http://localhost:5173  
+- API: http://localhost:8080/health  
+- Остановка: `Ctrl+C`, затем `docker compose down`
+
+База SQLite хранится в Docker-томе `griffiths-data`.
+
+### Вариант B: локально (два окна)
+
+#### 1. Настройка
 
 ```cmd
 cd C:\Users\Юлия\Projects\griffiths-baby-bot
@@ -24,7 +47,7 @@ copy .env.example .env
 
 Заполните `.env`: `JWT_SECRET`, `NORDROUTER_API_KEY`.
 
-### 2. Запуск
+#### 2. Запуск
 
 Дважды кликните (или из cmd):
 
@@ -52,6 +75,9 @@ npm run dev
 griffiths-baby-bot/
 ├── backend/           # FastAPI + SQLite + NordRouter
 ├── frontend/          # React + Tailwind
+├── docker-compose.yml
+├── Dockerfile
+├── start-docker.cmd
 ├── start-backend.cmd
 ├── start-frontend.cmd
 └── requirements.txt

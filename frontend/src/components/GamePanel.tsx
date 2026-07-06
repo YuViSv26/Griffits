@@ -3,14 +3,26 @@ import { api, type TodayPlanResponse } from "../api/client";
 import { exportElementToPdf } from "../lib/exportPdf";
 import { Button, Card, Spinner } from "./ui";
 
-const PLAN_PRICE_RUB = 199;
+interface GamePanelProps {
+  returnFromPayment?: boolean;
+  paymentId?: string;
+}
 
-export function GamePanel() {
+export function GamePanel({
+  returnFromPayment = false,
+  paymentId,
+}: GamePanelProps) {
   const [plan, setPlan] = useState<TodayPlanResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [checkingPayment, setCheckingPayment] = useState(false);
   const [paid, setPaid] = useState(false);
+  const [priceRub, setPriceRub] = useState(199);
+  const [activePaymentId, setActivePaymentId] = useState<string | null>(
+    paymentId ?? null
+  );
   const printRef = useRef<HTMLDivElement>(null);
 
   const load = () => {
@@ -30,16 +42,71 @@ export function GamePanel() {
     load();
   }, []);
 
+  useEffect(() => {
+    if (!returnFromPayment && !paymentId) return;
+
+    let cancelled = false;
+
+    async function verifyPayment() {
+      setCheckingPayment(true);
+      for (let attempt = 0; attempt < 5 && !cancelled; attempt++) {
+        try {
+          const status = paymentId
+            ? await api.getPlanPdfPaymentStatus(paymentId)
+            : await api.getLatestPlanPdfPaymentStatus();
+          if (cancelled) return;
+
+          setPriceRub(status.amount_rub);
+          setActivePaymentId(status.payment_id);
+
+          if (status.can_download || status.paid) {
+            setPaid(true);
+            break;
+          }
+
+          if (status.status === "canceled") {
+            setError("Оплата отменена. Попробуйте снова.");
+            break;
+          }
+        } catch (e) {
+          if (attempt === 4 && !cancelled) {
+            setError(
+              e instanceof Error
+                ? e.message
+                : "Не удалось проверить статус оплаты"
+            );
+          }
+        }
+
+        if (attempt < 4) {
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
+      }
+      if (!cancelled) setCheckingPayment(false);
+    }
+
+    verifyPayment();
+    return () => {
+      cancelled = true;
+    };
+  }, [returnFromPayment, paymentId]);
+
   const handlePayAndPdf = async () => {
     if (!plan || !printRef.current) return;
 
     if (!paid) {
-      const ok = window.confirm(
-        `Стоимость персонального плана: ${PLAN_PRICE_RUB} ₽.\n\n` +
-          "Демо-режим: реальная оплата не подключена. Продолжить и сохранить PDF бесплатно?"
-      );
-      if (!ok) return;
-      setPaid(true);
+      setPaying(true);
+      setError("");
+      try {
+        const res = await api.createPlanPdfPayment();
+        setActivePaymentId(res.payment_id);
+        setPriceRub(res.amount_rub);
+        window.location.href = res.confirmation_url;
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Не удалось создать платёж");
+        setPaying(false);
+      }
+      return;
     }
 
     setExporting(true);
@@ -49,6 +116,9 @@ export function GamePanel() {
         printRef.current,
         `plan-${plan.baby_name}-${date}.pdf`
       );
+      if (activePaymentId) {
+        await api.markPlanPdfDownloaded(activePaymentId).catch(() => {});
+      }
     } catch {
       setError("Не удалось создать PDF. Попробуйте ещё раз.");
     } finally {
@@ -79,6 +149,19 @@ export function GamePanel() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
+      {checkingPayment && (
+        <Card className="flex items-center gap-3 border-brand-100 bg-brand-50/50 p-4 text-sm text-brand-800">
+          <Spinner />
+          Проверяем оплату…
+        </Card>
+      )}
+
+      {paid && !checkingPayment && (
+        <Card className="border-emerald-100 bg-emerald-50/60 p-4 text-sm text-emerald-900">
+          Оплата прошла успешно. Нажмите «Сохранить в PDF», чтобы скачать план.
+        </Card>
+      )}
+
       <div ref={printRef} className="space-y-6 bg-white p-1">
         <Card className="overflow-hidden border-brand-100">
           <div className="bg-gradient-to-r from-brand-600 to-brand-700 px-6 py-5 text-white">
@@ -176,23 +259,23 @@ export function GamePanel() {
         </Card>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && plan && <p className="text-sm text-red-600">{error}</p>}
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <Button
           className="flex-1 bg-brand-600 hover:bg-brand-700"
           onClick={handlePayAndPdf}
-          disabled={exporting}
+          disabled={exporting || paying || checkingPayment}
         >
-          {exporting ? (
+          {exporting || paying ? (
             <Spinner />
           ) : paid ? (
             "Сохранить в PDF"
           ) : (
-            `Оплатить ${PLAN_PRICE_RUB} ₽ и сохранить в PDF`
+            `Оплатить ${priceRub} ₽ и сохранить в PDF`
           )}
         </Button>
-        <Button variant="secondary" onClick={load}>
+        <Button variant="secondary" onClick={load} disabled={paying}>
           Обновить план
         </Button>
       </div>

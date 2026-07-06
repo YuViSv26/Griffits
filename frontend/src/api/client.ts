@@ -189,6 +189,21 @@ export interface TodayPlanResponse {
   weakest_score: number | null;
 }
 
+export interface CreatePlanPaymentResponse {
+  payment_id: string;
+  confirmation_url: string;
+  amount_rub: number;
+  status: string;
+}
+
+export interface PlanPaymentStatusResponse {
+  payment_id: string;
+  status: string;
+  paid: boolean;
+  can_download: boolean;
+  amount_rub: number;
+}
+
 export const api = {
   init: () => request<InitResponse>("/api/init"),
   me: () => request<InitResponse>("/api/me"),
@@ -241,6 +256,25 @@ export const api = {
   getGameToday: () => request<GameResponse>("/api/games/today"),
 
   getTodayPlan: () => request<TodayPlanResponse>("/api/games/today-plan"),
+
+  createPlanPdfPayment: () =>
+    request<CreatePlanPaymentResponse>("/api/payments/plan-pdf/create", {
+      method: "POST",
+    }),
+
+  getPlanPdfPaymentStatus: (paymentId: string) =>
+    request<PlanPaymentStatusResponse>(
+      `/api/payments/plan-pdf/${encodeURIComponent(paymentId)}`
+    ),
+
+  getLatestPlanPdfPaymentStatus: () =>
+    request<PlanPaymentStatusResponse>("/api/payments/plan-pdf/latest/status"),
+
+  markPlanPdfDownloaded: (paymentId: string) =>
+    request<{ ok: boolean }>(
+      `/api/payments/plan-pdf/${encodeURIComponent(paymentId)}/downloaded`,
+      { method: "POST" }
+    ),
 
   getProgress: () => request<ProgressResponse>("/api/progress"),
 
