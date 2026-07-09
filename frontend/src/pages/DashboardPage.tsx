@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { AssessmentWizard } from "../components/AssessmentWizard";
-import { ChatWindow } from "../components/ChatWindow";
-import { GamePanel } from "../components/GamePanel";
 import { OnboardingForm } from "../components/OnboardingForm";
 import { ProgressPanel } from "../components/ProgressPanel";
 import { Sidebar, type Tab } from "../components/Sidebar";
@@ -20,9 +18,7 @@ function readPaymentParams() {
 export function DashboardPage() {
   const { user, logout, refresh } = useAuth();
   const initial = readPaymentParams();
-  const [tab, setTab] = useState<Tab>(
-    initial.tab === "game" ? "game" : "chat"
-  );
+  const [tab, setTab] = useState<Tab>("test");
   const [returnFromPayment, setReturnFromPayment] = useState(
     initial.returnFromPayment
   );
@@ -34,7 +30,7 @@ export function DashboardPage() {
   useEffect(() => {
     const { tab: tabParam, returnFromPayment: fromPayment, paymentId: pid } =
       readPaymentParams();
-    if (tabParam === "game") setTab("game");
+    if (tabParam === "test") setTab("test");
     if (fromPayment) setReturnFromPayment(true);
     if (pid) setPaymentId(pid);
 
@@ -45,28 +41,22 @@ export function DashboardPage() {
 
   const renderContent = () => {
     switch (tab) {
-      case "chat":
-        return <ChatWindow />;
-      case "game":
-        return (
-          <div className="overflow-y-auto p-4 md:p-6">
-            <GamePanel
-              returnFromPayment={returnFromPayment}
-              paymentId={paymentId}
-            />
-          </div>
-        );
       case "test":
         return (
           <div className="overflow-y-auto p-4 md:p-6">
             <AssessmentWizard
               key={testKey}
               babyBirthday={user?.baby_birthday}
+              userEmail={user?.email}
+              returnFromPayment={returnFromPayment}
+              paymentId={paymentId}
               onComplete={async () => {
-          await refresh();
-          setTab("progress");
-        }}
-              onSkip={() => setTab("chat")}
+                await refresh();
+                setReturnFromPayment(false);
+                setPaymentId(undefined);
+                setTab("progress");
+              }}
+              onSkip={() => setTab("progress")}
             />
           </div>
         );
@@ -108,27 +98,16 @@ export function DashboardPage() {
         onLogout={logout}
       />
       <main className="flex min-h-0 flex-1 flex-col md:min-h-screen">
-        {tab === "chat" ? (
-          <div className="flex min-h-[calc(100vh-56px)] flex-1 flex-col md:min-h-screen">
-            <header className="hidden border-b border-slate-200 bg-white px-6 py-3 md:block">
-              <h2 className="font-semibold">Чат с консультантом</h2>
-              <p className="text-xs text-slate-500">Powered by NordRouter</p>
-            </header>
-            {renderContent()}
-          </div>
-        ) : (
-          <div className="flex-1 overflow-hidden">
-            <header className="border-b border-slate-200 bg-white px-4 py-3 md:px-6">
-              <h2 className="font-semibold">
-                {tab === "game" && "Игра на сегодня"}
-                {tab === "test" && "Шкала Гриффитс"}
-                {tab === "progress" && "Прогресс ребёнка"}
-                {tab === "profile" && "Данные ребёнка"}
-              </h2>
-            </header>
-            {renderContent()}
-          </div>
-        )}
+        <div className="flex-1 overflow-hidden">
+          <header className="border-b border-slate-200 bg-white px-4 py-3 md:px-6">
+            <h2 className="font-semibold">
+              {tab === "test" && "Шкала Гриффитс"}
+              {tab === "progress" && "Прогресс ребёнка"}
+              {tab === "profile" && "Данные ребёнка"}
+            </h2>
+          </header>
+          {renderContent()}
+        </div>
       </main>
     </div>
   );

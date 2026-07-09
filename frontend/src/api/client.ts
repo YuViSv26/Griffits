@@ -202,6 +202,7 @@ export interface PlanPaymentStatusResponse {
   paid: boolean;
   can_download: boolean;
   amount_rub: number;
+  pdf_emailed: boolean;
 }
 
 export const api = {
@@ -263,9 +264,10 @@ export const api = {
 
   getTodayPlan: () => request<TodayPlanResponse>("/api/games/today-plan"),
 
-  createPlanPdfPayment: () =>
+  createPlanPdfPayment: (returnTab: "test" | "game" = "test") =>
     request<CreatePlanPaymentResponse>("/api/payments/plan-pdf/create", {
       method: "POST",
+      body: JSON.stringify({ return_tab: returnTab }),
     }),
 
   getPlanPdfPaymentStatus: (paymentId: string) =>

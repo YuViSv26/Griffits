@@ -121,6 +121,7 @@ class PlanPayment(Base):
     status: Mapped[str] = mapped_column(default="pending")
     product: Mapped[str] = mapped_column(default="plan_pdf")
     pdf_downloaded: Mapped[bool] = mapped_column(default=False)
+    pdf_emailed: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(timezone.utc)
     )
@@ -149,6 +150,7 @@ async def _migrate_columns() -> None:
         "ALTER TABLE skills_assessments ADD COLUMN result_locomotion TEXT",
         "ALTER TABLE skills_assessments ADD COLUMN result_eye_hand TEXT",
         "ALTER TABLE skills_assessments ADD COLUMN result_play TEXT",
+        "ALTER TABLE plan_payments ADD COLUMN pdf_emailed BOOLEAN DEFAULT 0",
     ]
     async with engine.begin() as conn:
         for stmt in migrations:
@@ -497,3 +499,16 @@ async def mark_plan_payment_downloaded(yookassa_payment_id: str) -> None:
         row = result.scalar_one()
         row.pdf_downloaded = True
         await session.flush()
+
+
+async def mark_plan_payment_emailed(yookassa_payment_id: str) -> PlanPayment:
+    async with get_session() as session:
+        result = await session.execute(
+            select(PlanPayment).where(
+                PlanPayment.yookassa_payment_id == yookassa_payment_id
+            )
+        )
+        row = result.scalar_one()
+        row.pdf_emailed = True
+        await session.flush()
+        return row

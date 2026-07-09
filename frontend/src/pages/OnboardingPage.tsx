@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/AuthContext";
 import { AssessmentWizard } from "../components/AssessmentWizard";
 import { OnboardingForm } from "../components/OnboardingForm";
 
 type Step = "profile" | "test-offer" | "test";
 
 export function OnboardingPage() {
-  const { refresh } = useAuth();
+  const { user, refresh } = useAuth();
   const [step, setStep] = useState<Step>("profile");
   const [savedBirthday, setSavedBirthday] = useState("");
 
@@ -63,6 +64,7 @@ export function OnboardingPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
       <AssessmentWizard
         babyBirthday={savedBirthday}
+        userEmail={user?.email}
         onComplete={finishOnboarding}
         onSkip={finishOnboarding}
       />

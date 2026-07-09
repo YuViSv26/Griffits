@@ -1,4 +1,4 @@
-type Tab = "chat" | "game" | "test" | "progress" | "profile";
+type Tab = "test" | "progress" | "profile";
 
 interface Props {
   active: Tab;
@@ -9,8 +9,6 @@ interface Props {
 }
 
 const items: { id: Tab; label: string; icon: string }[] = [
-  { id: "chat", label: "Чат", icon: "💬" },
-  { id: "game", label: "Игра на сегодня", icon: "🎮" },
   { id: "test", label: "Шкала Гриффитс", icon: "📋" },
   { id: "progress", label: "Прогресс", icon: "📈" },
   { id: "profile", label: "Профиль", icon: "✏️" },

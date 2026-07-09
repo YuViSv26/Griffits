@@ -1,4 +1,8 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+
+class CreatePlanPaymentRequest(BaseModel):
+    return_tab: str = Field(default="test", pattern="^(test|game)$")
 
 
 class CreatePlanPaymentResponse(BaseModel):
@@ -14,3 +18,4 @@ class PlanPaymentStatusResponse(BaseModel):
     paid: bool
     can_download: bool
     amount_rub: int
+    pdf_emailed: bool = False

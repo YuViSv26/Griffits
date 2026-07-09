@@ -8,8 +8,19 @@ from datetime import datetime, timezone
 from fastapi import HTTPException
 
 from backend.config import get_settings
-from backend.db import PlanPayment, User, get_plan_payment, save_plan_payment, update_plan_payment_status
+from backend.db import (
+    PlanPayment,
+    User,
+    get_plan_payment,
+    get_user_by_id,
+    mark_plan_payment_emailed,
+    save_plan_payment,
+    update_plan_payment_status,
+)
 from backend.schemas.payments import CreatePlanPaymentResponse, PlanPaymentStatusResponse
+from backend.services.email import send_plan_pdf_email, smtp_configured
+from backend.services.plan_pdf import generate_plan_pdf
+from backend.services.today_plan import get_today_plan
 from backend.services.yookassa_client import create_redirect_payment, get_payment
 
 logger = logging.getLogger(__name__)
@@ -23,7 +34,59 @@ def _yookassa_configured() -> bool:
     return bool(s.yookassa_shop_id and s.yookassa_secret_key)
 
 
-async def create_plan_pdf_payment(user: User) -> CreatePlanPaymentResponse:
+async def _maybe_send_plan_pdf_email(record: PlanPayment) -> PlanPayment:
+    if record.status not in PAID_STATUSES or record.pdf_emailed:
+        return record
+    if not smtp_configured():
+        logger.warning(
+            "SMTP не настроен — PDF не отправлен для платежа %s",
+            record.yookassa_payment_id,
+        )
+        return record
+
+    user = await get_user_by_id(record.user_id)
+    if not user:
+        return record
+
+    try:
+        plan = await get_today_plan(user)
+        pdf_bytes = generate_plan_pdf(plan)
+        ok, err = send_plan_pdf_email(user.email, plan.baby_name, pdf_bytes)
+        if ok:
+            logger.info(
+                "PDF-план отправлен на %s (платёж %s)",
+                user.email,
+                record.yookassa_payment_id,
+            )
+            return await mark_plan_payment_emailed(record.yookassa_payment_id)
+        logger.error(
+            "Не удалось отправить PDF на %s: %s",
+            user.email,
+            err,
+        )
+    except Exception:
+        logger.exception(
+            "Ошибка генерации/отправки PDF для платежа %s",
+            record.yookassa_payment_id,
+        )
+    return record
+
+
+def _payment_status_response(record: PlanPayment) -> PlanPaymentStatusResponse:
+    paid = record.status in PAID_STATUSES
+    return PlanPaymentStatusResponse(
+        payment_id=record.yookassa_payment_id,
+        status=record.status,
+        paid=paid,
+        can_download=paid,
+        amount_rub=record.amount_rub,
+        pdf_emailed=record.pdf_emailed,
+    )
+
+
+async def create_plan_pdf_payment(
+    user: User, return_tab: str = "test"
+) -> CreatePlanPaymentResponse:
     settings = get_settings()
     if not _yookassa_configured():
         raise HTTPException(
@@ -32,7 +95,7 @@ async def create_plan_pdf_payment(user: User) -> CreatePlanPaymentResponse:
         )
 
     amount = settings.plan_pdf_price_rub
-    return_url = f"{settings.frontend_url}/?tab=game&from_payment=1"
+    return_url = f"{settings.frontend_url}/?tab={return_tab}&from_payment=1"
 
     description = f"План развития PDF — {user.baby_name or 'ребёнок'}"
 
@@ -93,7 +156,7 @@ async def _sync_payment_from_yookassa(record: PlanPayment) -> PlanPayment:
     new_status = yk.get("status", record.status)
     if new_status != record.status:
         paid_at = datetime.now(timezone.utc) if new_status in PAID_STATUSES else None
-        return await update_plan_payment_status(
+        record = await update_plan_payment_status(
             record.yookassa_payment_id, new_status, paid_at=paid_at
         )
     return record
@@ -107,16 +170,8 @@ async def get_plan_payment_status(
         raise HTTPException(status_code=404, detail="Платёж не найден")
 
     record = await _sync_payment_from_yookassa(record)
-    paid = record.status in PAID_STATUSES
-    can_download = paid
-
-    return PlanPaymentStatusResponse(
-        payment_id=record.yookassa_payment_id,
-        status=record.status,
-        paid=paid,
-        can_download=can_download,
-        amount_rub=record.amount_rub,
-    )
+    record = await _maybe_send_plan_pdf_email(record)
+    return _payment_status_response(record)
 
 
 async def mark_plan_pdf_downloaded(user: User, payment_id: str) -> None:
@@ -145,10 +200,11 @@ async def handle_yookassa_webhook(payload: dict) -> None:
 
     status = obj.get("status", record.status)
     if event == "payment.succeeded" or status in PAID_STATUSES:
-        await update_plan_payment_status(
+        record = await update_plan_payment_status(
             payment_id,
             status,
             paid_at=datetime.now(timezone.utc),
         )
+        await _maybe_send_plan_pdf_email(record)
     elif event == "payment.canceled":
         await update_plan_payment_status(payment_id, "canceled")

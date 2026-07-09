@@ -14,11 +14,15 @@ import {
   formatAgeMonths,
 } from "../lib/griffithsScoring";
 import { Button, Card, Input, Label, Spinner } from "./ui";
+import { PlanPaymentPrompt } from "./PlanPaymentPrompt";
 
 type Phase = "start" | "testing" | "results";
 
 interface Props {
   babyBirthday?: string;
+  userEmail?: string;
+  returnFromPayment?: boolean;
+  paymentId?: string;
   onComplete: () => void;
   onSkip: () => void;
 }
@@ -39,7 +43,14 @@ function resultsFromScales(scales: ScaleResultItem[]): ScaleResults {
   return empty;
 }
 
-export function AssessmentWizard({ babyBirthday, onComplete, onSkip }: Props) {
+export function AssessmentWizard({
+  babyBirthday,
+  userEmail,
+  returnFromPayment = false,
+  paymentId,
+  onComplete,
+  onSkip,
+}: Props) {
   const [phase, setPhase] = useState<Phase>("start");
   const [birthday, setBirthday] = useState(babyBirthday ?? "");
   const [ageMonths, setAgeMonths] = useState(0);
@@ -50,6 +61,7 @@ export function AssessmentWizard({ babyBirthday, onComplete, onSkip }: Props) {
   const [session, setSession] = useState<ScaleSessionState | null>(null);
   const [allResults, setAllResults] = useState<Partial<ScaleResults>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
   const [isReadOnly, setIsReadOnly] = useState(false);
@@ -153,13 +165,26 @@ export function AssessmentWizard({ babyBirthday, onComplete, onSkip }: Props) {
         age_months: ageMonths,
         results: allResults as ScaleResults,
       });
-      onComplete();
+      setSaved(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ошибка сохранения");
     } finally {
       setSubmitting(false);
     }
   };
+
+  if (returnFromPayment) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-6">
+        <PlanPaymentPrompt
+          userEmail={userEmail}
+          returnFromPayment={returnFromPayment}
+          paymentId={paymentId}
+          onDone={onComplete}
+        />
+      </div>
+    );
+  }
 
   if (phase === "start") {
     return (
@@ -358,6 +383,10 @@ export function AssessmentWizard({ babyBirthday, onComplete, onSkip }: Props) {
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
+        {(saved || isReadOnly) && (
+          <PlanPaymentPrompt userEmail={userEmail} onDone={onComplete} />
+        )}
+
         <div className="flex gap-3">
           {isReadOnly ? (
             <>
@@ -371,6 +400,10 @@ export function AssessmentWizard({ babyBirthday, onComplete, onSkip }: Props) {
                 Закрыть
               </Button>
             </>
+          ) : saved ? (
+            <Button variant="secondary" onClick={onComplete}>
+              Перейти к прогрессу
+            </Button>
           ) : (
             <>
               <Button
@@ -378,7 +411,11 @@ export function AssessmentWizard({ babyBirthday, onComplete, onSkip }: Props) {
                 onClick={saveResults}
                 disabled={submitting}
               >
-                {submitting ? <Spinner /> : "Сохранить и продолжить"}
+                {submitting ? (
+                  <Spinner />
+                ) : (
+                  "Сохранить и получить план на email"
+                )}
               </Button>
               <Button variant="secondary" onClick={onSkip}>
                 Закрыть
