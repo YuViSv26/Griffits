@@ -34,22 +34,37 @@ def send_password_reset_email(to_email: str, reset_url: str) -> tuple[bool, str 
     try:
         if settings.smtp_use_ssl:
             with smtplib.SMTP_SSL(
-                settings.smtp_host, settings.smtp_port, timeout=20
+                settings.smtp_host,
+                settings.smtp_port,
+                timeout=30,
+                local_hostname="localhost",
             ) as server:
                 server.login(settings.smtp_user, settings.smtp_password)
                 server.send_message(msg)
         else:
-            with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=20) as server:
+            with smtplib.SMTP(
+                settings.smtp_host,
+                settings.smtp_port,
+                timeout=30,
+                local_hostname="localhost",
+            ) as server:
                 server.ehlo()
-                server.starttls()
-                server.ehlo()
+                if server.has_extn("starttls"):
+                    server.starttls()
+                    server.ehlo()
                 server.login(settings.smtp_user, settings.smtp_password)
                 server.send_message(msg)
         logger.info("Письмо сброса пароля отправлено на %s", to_email)
         return True, None
     except smtplib.SMTPAuthenticationError:
-        logger.exception("Ошибка авторизации SMTP")
+        logger.exception("Ошибка авторизации SMTP для %s", settings.smtp_user)
         return False, "Неверный логин или пароль SMTP"
+    except smtplib.SMTPException as exc:
+        logger.exception("Ошибка SMTP при отправке на %s", to_email)
+        return False, str(exc)
+    except OSError as exc:
+        logger.exception("Сетевая ошибка SMTP (%s:%s)", settings.smtp_host, settings.smtp_port)
+        return False, f"Не удалось подключиться к SMTP: {exc}"
     except Exception as exc:
         logger.exception("Не удалось отправить письмо на %s", to_email)
         return False, str(exc)

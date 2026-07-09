@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.config import get_settings
 from backend.db import init_db, seed_games_if_empty
 from backend.routers import assessment, auth, chat, games, init, payments, profile
+from backend.services.email import smtp_configured
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +16,15 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     await init_db()
     await seed_games_if_empty()
-    logger.info("Backend started: DB ready, games seeded")
+    settings = get_settings()
+    if smtp_configured():
+        logger.info("SMTP настроен (%s:%s)", settings.smtp_host, settings.smtp_port)
+    else:
+        logger.warning(
+            "SMTP не настроен — восстановление пароля по email не будет работать. "
+            "Заполните SMTP_HOST, SMTP_FROM, SMTP_USER, SMTP_PASSWORD в .env"
+        )
+    logger.info("Backend started: DB ready, games seeded, FRONTEND_URL=%s", settings.frontend_url)
     yield
 
 

@@ -81,6 +81,7 @@ async def forgot_password(body: ForgotPasswordRequest) -> ForgotPasswordResponse
     email_sent = False
     reset_url: str | None = None
 
+    smtp_error: str | None = None
     user = await get_user_by_email(body.email)
     if user:
         token = secrets.token_urlsafe(32)
@@ -91,16 +92,38 @@ async def forgot_password(body: ForgotPasswordRequest) -> ForgotPasswordResponse
         if smtp_configured():
             email_sent, smtp_error = send_password_reset_email(user.email, reset_url)
             if not email_sent:
-                logger.error("SMTP error: %s", smtp_error)
+                logger.error(
+                    "Не удалось отправить письмо сброса пароля на %s: %s",
+                    user.email,
+                    smtp_error,
+                )
         else:
-            logger.info("SMTP не настроен. Ссылка сброса: %s", reset_url)
+            logger.warning(
+                "SMTP не настроен (SMTP_HOST, SMTP_FROM, SMTP_USER, SMTP_PASSWORD). "
+                "Ссылка сброса для %s: %s",
+                user.email,
+                reset_url,
+            )
 
     if email_sent:
-        message = "Ссылка для сброса пароля отправлена на ваш email. Проверьте входящие и папку «Спам»."
+        message = (
+            "Ссылка для сброса пароля отправлена на ваш email. "
+            "Проверьте входящие и папку «Спам»."
+        )
     elif user and settings.app_debug and reset_url:
         message = (
-            "Почта не настроена на сервере — используйте ссылку ниже "
+            "Почта не настроена или не отправилась — используйте ссылку ниже "
             "(режим разработки)."
+        )
+        if smtp_error:
+            message += f" Ошибка SMTP: {smtp_error}"
+    elif user and not email_sent:
+        message = (
+            "Не удалось отправить письмо. Попробуйте позже или обратитесь к администратору."
+        )
+        logger.error(
+            "forgot-password: пользователь %s найден, но письмо не отправлено",
+            body.email,
         )
     else:
         message = (

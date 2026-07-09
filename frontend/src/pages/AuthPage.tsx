@@ -20,6 +20,7 @@ export function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
+  const [infoIsSuccess, setInfoIsSuccess] = useState(false);
   const [devResetUrl, setDevResetUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -33,6 +34,7 @@ export function AuthPage() {
   const clearMessages = () => {
     setError("");
     setInfo("");
+    setInfoIsSuccess(false);
     setDevResetUrl(null);
   };
 
@@ -60,6 +62,7 @@ export function AuthPage() {
     try {
       const res = await api.forgotPassword(email);
       setInfo(res.message);
+      setInfoIsSuccess(res.email_sent);
       if (res.reset_url) {
         setDevResetUrl(res.reset_url);
       }
@@ -159,7 +162,15 @@ export function AuthPage() {
               />
             </div>
             {error && <p className="text-sm text-red-600">{error}</p>}
-            {info && <p className="text-sm text-green-700">{info}</p>}
+            {info && (
+              <p
+                className={`text-sm ${
+                  infoIsSuccess ? "text-green-700" : "text-amber-800"
+                }`}
+              >
+                {info}
+              </p>
+            )}
             {devResetUrl && (
               <a
                 href={devResetUrl}

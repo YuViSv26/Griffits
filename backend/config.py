@@ -57,7 +57,10 @@ def get_settings() -> Settings:
         smtp_host=os.getenv("SMTP_HOST", "").strip(),
         smtp_port=int(os.getenv("SMTP_PORT", "587")),
         smtp_user=os.getenv("SMTP_USER", "").strip(),
-        smtp_password=os.getenv("SMTP_PASSWORD", "").strip(),
+        smtp_password=(
+            os.getenv("SMTP_PASSWORD", "").strip()
+            or os.getenv("SMTP_PASS", "").strip()
+        ),
         smtp_from=os.getenv("SMTP_FROM", "").strip(),
         smtp_use_ssl=os.getenv("SMTP_USE_SSL", "false").lower() == "true",
         yookassa_shop_id=os.getenv("YOOKASSA_SHOP_ID", "").strip(),

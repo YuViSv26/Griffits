@@ -7,8 +7,6 @@ services:
       - .env
     environment:
       DATABASE_URL: sqlite+aiosqlite:////data/griffiths_web.db
-      CORS_ORIGINS: http://localhost:5173,http://localhost
-      FRONTEND_URL: http://localhost:5173
     volumes:
       - griffiths-data:/data
     ports:
