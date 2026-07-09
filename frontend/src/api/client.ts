@@ -226,7 +226,13 @@ export const api = {
   forgotPassword: (email: string) =>
     request<{ message: string; email_sent: boolean; reset_url?: string | null }>(
       "/api/auth/forgot-password",
-      { method: "POST", body: JSON.stringify({ email }) }
+      {
+        method: "POST",
+        body: JSON.stringify({
+          email,
+          reset_base_url: window.location.origin,
+        }),
+      }
     ),
 
   resetPassword: (token: string, password: string) =>

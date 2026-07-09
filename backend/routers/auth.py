@@ -2,7 +2,7 @@ import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Request, Response
 
 from backend.auth_utils import create_access_token, hash_password, verify_password
 from backend.config import get_settings
@@ -26,6 +26,24 @@ from backend.schemas.auth import (
 from backend.services.email import send_password_reset_email, smtp_configured
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+
+def _allowed_frontend_origins(settings) -> set[str]:
+    origins = {settings.frontend_url.rstrip("/")}
+    origins.update(origin.rstrip("/") for origin in settings.cors_origins)
+    return origins
+
+
+def _resolve_reset_base_url(candidate: str | None, settings) -> str:
+    if candidate:
+        base = candidate.strip().rstrip("/")
+        if base in _allowed_frontend_origins(settings):
+            return base
+        logger.warning(
+            "reset_base_url %s не в списке разрешённых адресов, используем FRONTEND_URL",
+            base,
+        )
+    return settings.frontend_url.rstrip("/")
 
 
 def _set_auth_cookie(response: Response, token: str) -> None:
@@ -76,7 +94,9 @@ async def logout(response: Response) -> dict:
 
 
 @router.post("/forgot-password", response_model=ForgotPasswordResponse)
-async def forgot_password(body: ForgotPasswordRequest) -> ForgotPasswordResponse:
+async def forgot_password(
+    body: ForgotPasswordRequest, request: Request
+) -> ForgotPasswordResponse:
     settings = get_settings()
     email_sent = False
     reset_url: str | None = None
@@ -87,7 +107,11 @@ async def forgot_password(body: ForgotPasswordRequest) -> ForgotPasswordResponse
         token = secrets.token_urlsafe(32)
         expires = datetime.now(timezone.utc) + timedelta(hours=1)
         await create_password_reset_token(user.id, token, expires)
-        reset_url = f"{settings.frontend_url}/?reset={token}"
+        base_url = _resolve_reset_base_url(
+            body.reset_base_url or request.headers.get("origin"),
+            settings,
+        )
+        reset_url = f"{base_url}/?reset={token}"
 
         if smtp_configured():
             email_sent, smtp_error = send_password_reset_email(user.email, reset_url)

@@ -20,6 +20,7 @@ class AuthResponse(BaseModel):
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
+    reset_base_url: str | None = None
 
 
 class ForgotPasswordResponse(BaseModel):
