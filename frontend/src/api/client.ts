@@ -252,6 +252,12 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  sendAssessmentToOrganization: (organization: string) =>
+    request<{ message: string; email_sent: boolean }>(
+      "/api/assessment/send-to-organization",
+      { method: "POST", body: JSON.stringify({ organization }) }
+    ),
+
   getGameToday: () => request<GameResponse>("/api/games/today"),
 
   getTodayPlan: () => request<TodayPlanResponse>("/api/games/today-plan"),

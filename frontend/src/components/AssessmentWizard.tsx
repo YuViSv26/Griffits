@@ -55,6 +55,9 @@ export function AssessmentWizard({
   const [testDate, setTestDate] = useState<string | null>(null);
   const [loadingLatest, setLoadingLatest] = useState(false);
   const [latestError, setLatestError] = useState("");
+  const [organization, setOrganization] = useState("");
+  const [sendingToOrg, setSendingToOrg] = useState(false);
+  const [sendSuccess, setSendSuccess] = useState("");
 
   const currentScale = SCALES[scaleIndex];
   const currentQuestion = session
@@ -67,6 +70,8 @@ export function AssessmentWizard({
     setAllResults({});
     setLatestError("");
     setError("");
+    setOrganization("");
+    setSendSuccess("");
     setPhase("start");
   };
 
@@ -151,6 +156,25 @@ export function AssessmentWizard({
     }
   };
 
+  const handleSendToOrganization = async () => {
+    const org = organization.trim();
+    if (!org) {
+      setError("Введите название организации");
+      return;
+    }
+    setSendingToOrg(true);
+    setError("");
+    setSendSuccess("");
+    try {
+      const res = await api.sendAssessmentToOrganization(org);
+      setSendSuccess(res.message);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Не удалось отправить");
+    } finally {
+      setSendingToOrg(false);
+    }
+  };
+
   if (phase === "results") {
     return (
       <div className="mx-auto max-w-2xl space-y-6">
@@ -165,6 +189,34 @@ export function AssessmentWizard({
         </Card>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
+        {sendSuccess && (
+          <p className="text-sm text-green-700">{sendSuccess}</p>
+        )}
+
+        {!isReadOnly && (
+          <Card className="border-violet-100 p-6">
+            <Label>Медицинская организация</Label>
+            <Input
+              type="text"
+              value={organization}
+              onChange={(e) => setOrganization(e.target.value)}
+              placeholder="ДНКЦ им. Л.М.Рошаля"
+              className="mt-1.5"
+              disabled={sendingToOrg}
+            />
+            <p className="mt-2 text-xs text-slate-500">
+              Введите название организации, куда отправить результат теста
+              лечащему доктору.
+            </p>
+            <Button
+              className="mt-4 w-full bg-violet-600 hover:bg-violet-700"
+              onClick={handleSendToOrganization}
+              disabled={sendingToOrg || !organization.trim()}
+            >
+              {sendingToOrg ? <Spinner /> : "Отправить"}
+            </Button>
+          </Card>
+        )}
 
         <div className="flex gap-3">
           {isReadOnly ? (
@@ -180,17 +232,9 @@ export function AssessmentWizard({
               </Button>
             </>
           ) : (
-            <>
-              <Button
-                className="flex-1 bg-violet-600 hover:bg-violet-700"
-                onClick={onComplete}
-              >
-                Ввести организацию и отправить результат лечащему доктору
-              </Button>
-              <Button variant="secondary" onClick={onSkip}>
-                Закрыть
-              </Button>
-            </>
+            <Button variant="secondary" onClick={onSkip}>
+              Закрыть
+            </Button>
           )}
         </div>
       </div>

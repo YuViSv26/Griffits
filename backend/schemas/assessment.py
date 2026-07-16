@@ -40,3 +40,12 @@ class AssessmentResultResponse(BaseModel):
 
 class AssessmentLatestResponse(AssessmentResultResponse):
     test_date: str
+
+
+class SendAssessmentToOrganizationRequest(BaseModel):
+    organization: str = Field(min_length=2, max_length=200)
+
+
+class SendAssessmentToOrganizationResponse(BaseModel):
+    message: str
+    email_sent: bool = False

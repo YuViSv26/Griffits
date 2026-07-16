@@ -112,3 +112,35 @@ def send_plan_pdf_email(
     if ok:
         logger.info("PDF-план отправлен на %s", to_email)
     return ok, err
+
+
+def send_assessment_results_email(
+    to_email: str,
+    organization: str,
+    baby_name: str,
+    age_label: str,
+    parent_email: str,
+    test_date: str,
+    body_text: str,
+) -> tuple[bool, str | None]:
+    """Отправляет результаты теста в медицинскую организацию."""
+    settings = get_settings()
+    msg = EmailMessage()
+    msg["Subject"] = (
+        f"Результат шкалы Гриффитс — {baby_name} ({organization})"
+    )
+    msg["From"] = settings.smtp_from
+    msg["To"] = to_email
+    msg.set_content(
+        f"Здравствуйте!\n\n"
+        f"Родитель направил результат тестирования по шкале Гриффитс.\n\n"
+        f"{body_text}\n\n"
+        f"— Нейроконсультант Гриффитс"
+    )
+
+    ok, err = _send_message(msg)
+    if ok:
+        logger.info(
+            "Результаты теста отправлены в %s (%s)", organization, to_email
+        )
+    return ok, err

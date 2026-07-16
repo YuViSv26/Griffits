@@ -6,8 +6,14 @@ from backend.schemas.assessment import (
     AssessmentLatestResponse,
     AssessmentResultResponse,
     AssessmentSubmitRequest,
+    SendAssessmentToOrganizationRequest,
+    SendAssessmentToOrganizationResponse,
 )
-from backend.services.assessment import get_latest_assessment_result, submit_assessment
+from backend.services.assessment import (
+    get_latest_assessment_result,
+    send_assessment_to_organization,
+    submit_assessment,
+)
 from backend.services.profile import is_profile_complete
 
 router = APIRouter(prefix="/api/assessment", tags=["assessment"])
@@ -43,5 +49,26 @@ async def assessment_submit(
     _require_profile(user)
     try:
         return await submit_assessment(user, body)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post(
+    "/send-to-organization",
+    response_model=SendAssessmentToOrganizationResponse,
+)
+async def assessment_send_to_organization(
+    body: SendAssessmentToOrganizationRequest,
+    user: User = Depends(get_current_user),
+) -> SendAssessmentToOrganizationResponse:
+    _require_profile(user)
+    try:
+        message, email_sent = await send_assessment_to_organization(
+            user, body.organization
+        )
+        return SendAssessmentToOrganizationResponse(
+            message=message,
+            email_sent=email_sent,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
