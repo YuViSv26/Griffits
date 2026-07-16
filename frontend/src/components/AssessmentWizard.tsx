@@ -168,6 +168,7 @@ export function AssessmentWizard({
     try {
       const res = await api.sendAssessmentToOrganization(org);
       setSendSuccess(res.message);
+      await onComplete();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Не удалось отправить");
     } finally {
