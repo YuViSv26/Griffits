@@ -1,3 +1,5 @@
+import re
+
 from backend.data.assessment_scales import (
     SCALE_BALL_BY_TEXT,
     SCALE_KEYS,
@@ -78,12 +80,23 @@ async def get_latest_assessment_result(user: User) -> AssessmentLatestResponse |
 
 
 ORGANIZATION_RECIPIENTS: dict[str, str] = {
-    "днкц им. л.м.рошаля": "airazrab@mail.ru",
+    "днкц им л м рошаля": "airazrab@mail.ru",
 }
 
 
 def _normalize_organization(name: str) -> str:
-    return " ".join(name.strip().lower().split())
+    text = name.strip().lower().replace("ё", "е")
+    text = re.sub(r"[.,\-—_'\"«»()]", " ", text)
+    return " ".join(text.split())
+
+
+def _resolve_organization_email(organization: str) -> str | None:
+    normalized = _normalize_organization(organization)
+    if normalized in ORGANIZATION_RECIPIENTS:
+        return ORGANIZATION_RECIPIENTS[normalized]
+    if "днкц" in normalized and "рошал" in normalized:
+        return ORGANIZATION_RECIPIENTS["днкц им л м рошаля"]
+    return None
 
 
 def _format_assessment_email_body(
@@ -136,8 +149,7 @@ async def send_assessment_to_organization(
     if not smtp_configured():
         raise ValueError("Почта не настроена на сервере. Обратитесь к администратору.")
 
-    normalized = _normalize_organization(organization)
-    recipient = ORGANIZATION_RECIPIENTS.get(normalized)
+    recipient = _resolve_organization_email(organization)
     if not recipient:
         raise ValueError(
             "Организация не найдена. Проверьте название или обратитесь в поддержку."
