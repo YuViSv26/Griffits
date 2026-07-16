@@ -118,9 +118,6 @@ def send_assessment_results_email(
     to_email: str,
     organization: str,
     baby_name: str,
-    age_label: str,
-    parent_email: str,
-    test_date: str,
     body_text: str,
 ) -> tuple[bool, str | None]:
     """Отправляет результаты теста в медицинскую организацию."""

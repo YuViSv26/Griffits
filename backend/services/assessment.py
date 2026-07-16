@@ -102,7 +102,6 @@ def _resolve_organization_email(organization: str) -> str | None:
 def _format_assessment_email_body(
     baby_name: str,
     age_label: str,
-    parent_email: str,
     organization: str,
     test_date: str,
     result: AssessmentLatestResponse,
@@ -119,7 +118,6 @@ def _format_assessment_email_body(
         f"Ребёнок: {baby_name}",
         f"Возраст: {age_label}",
         f"Дата теста: {test_date}",
-        f"Email родителя: {parent_email}",
         "",
         f"Сумма баллов: {norm.total_balls}",
         f"Возрастной эквивалент: {norm.total_age_equivalent_months} мес.",
@@ -166,7 +164,6 @@ async def send_assessment_to_organization(
     body_text = _format_assessment_email_body(
         baby_name=profile.baby_name,
         age_label=profile.age_label,
-        parent_email=user.email,
         organization=organization.strip(),
         test_date=result.test_date,
         result=result,
@@ -176,9 +173,6 @@ async def send_assessment_to_organization(
         to_email=recipient,
         organization=organization.strip(),
         baby_name=profile.baby_name,
-        age_label=profile.age_label,
-        parent_email=user.email,
-        test_date=result.test_date,
         body_text=body_text,
     )
     if not ok:
