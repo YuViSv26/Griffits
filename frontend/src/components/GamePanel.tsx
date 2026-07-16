@@ -49,8 +49,7 @@ export function GamePanel() {
     <div className="mx-auto max-w-3xl space-y-6">
       {!plan.has_assessment && (
         <Card className="border-amber-100 bg-amber-50/60 p-4 text-sm text-amber-900">
-          Пройдите «Шкалу Гриффитс», чтобы получить персональный план развития
-          на email.
+          Пройдите «Шкалу Гриффитс», чтобы получить персональный план развития.
         </Card>
       )}
 

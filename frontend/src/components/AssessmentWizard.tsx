@@ -9,15 +9,11 @@ import {
   type ScaleSessionState,
 } from "../lib/assessmentEngine";
 import { Button, Card, Input, Label, Spinner } from "./ui";
-import { PlanPaymentPrompt } from "./PlanPaymentPrompt";
 
-type Phase = "start" | "testing" | "payment";
+type Phase = "start" | "testing" | "results";
 
 interface Props {
   babyBirthday?: string;
-  userEmail?: string;
-  returnFromPayment?: boolean;
-  paymentId?: string;
   onComplete: () => void;
   onSkip: () => void;
 }
@@ -40,9 +36,6 @@ function resultsFromScales(scales: ScaleResultItem[]): ScaleResults {
 
 export function AssessmentWizard({
   babyBirthday,
-  userEmail,
-  returnFromPayment = false,
-  paymentId,
   onComplete,
   onSkip,
 }: Props) {
@@ -56,7 +49,6 @@ export function AssessmentWizard({
   const [session, setSession] = useState<ScaleSessionState | null>(null);
   const [allResults, setAllResults] = useState<Partial<ScaleResults>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
   const [isReadOnly, setIsReadOnly] = useState(false);
@@ -73,7 +65,6 @@ export function AssessmentWizard({
     setIsReadOnly(false);
     setTestDate(null);
     setAllResults({});
-    setSaved(false);
     setLatestError("");
     setError("");
     setPhase("start");
@@ -83,7 +74,6 @@ export function AssessmentWizard({
     setError("");
     setIsReadOnly(false);
     setTestDate(null);
-    setSaved(false);
     const age = calculateAge(birthday);
     if (!age.ok) {
       setWarning(age.warning ?? "Некорректная дата");
@@ -108,8 +98,7 @@ export function AssessmentWizard({
       setAllResults(resultsFromScales(data.scales));
       setTestDate(data.test_date);
       setIsReadOnly(true);
-      setSaved(true);
-      setPhase("payment");
+      setPhase("results");
     } catch (e) {
       setLatestError(
         e instanceof Error ? e.message : "Не удалось загрузить оценку"
@@ -119,7 +108,7 @@ export function AssessmentWizard({
     }
   };
 
-  const saveAndShowPayment = async (updated: Partial<ScaleResults>) => {
+  const saveAndShowResults = async (updated: Partial<ScaleResults>) => {
     setSubmitting(true);
     setError("");
     setAllResults(updated);
@@ -129,8 +118,7 @@ export function AssessmentWizard({
         age_months: ageMonths,
         results: updated as ScaleResults,
       });
-      setSaved(true);
-      setPhase("payment");
+      setPhase("results");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ошибка сохранения");
       setPhase("testing");
@@ -144,7 +132,7 @@ export function AssessmentWizard({
     const updated = { ...allResults, [key]: result };
 
     if (scaleIndex + 1 >= SCALES.length) {
-      void saveAndShowPayment(updated);
+      void saveAndShowResults(updated);
       return;
     }
 
@@ -163,19 +151,53 @@ export function AssessmentWizard({
     }
   };
 
-  if (returnFromPayment) {
+  if (phase === "results") {
     return (
       <div className="mx-auto max-w-2xl space-y-6">
-        <PlanPaymentPrompt
-          userEmail={userEmail}
-          returnFromPayment={returnFromPayment}
-          paymentId={paymentId}
-          onDone={onComplete}
-        />
+        <Card className="border-violet-200 bg-gradient-to-b from-violet-50/60 to-white p-6 text-center">
+          <h2 className="text-xl font-semibold text-violet-900">
+            {isReadOnly ? "План по последней оценке" : "Тест завершён"}
+          </h2>
+          {isReadOnly && testDate && (
+            <p className="mt-1 text-sm text-violet-600">Дата теста: {testDate}</p>
+          )}
+          <p className="mt-3 text-sm text-slate-600">
+            Результаты сохранены. Рекомендации по играм — в разделе «План на день».
+          </p>
+        </Card>
+
+        {error && <p className="text-sm text-red-600">{error}</p>}
+
+        <div className="flex gap-3">
+          {isReadOnly ? (
+            <>
+              <Button
+                className="flex-1 bg-violet-600 hover:bg-violet-700"
+                onClick={resetToStart}
+              >
+                Пройти тест заново
+              </Button>
+              <Button variant="secondary" onClick={onSkip}>
+                Закрыть
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                className="flex-1 bg-violet-600 hover:bg-violet-700"
+                onClick={onComplete}
+              >
+                Ввести организацию и отправить результат лечащему доктору
+              </Button>
+              <Button variant="secondary" onClick={onSkip}>
+                Закрыть
+              </Button>
+            </>
+          )}
+        </div>
       </div>
     );
   }
-
   if (phase === "start") {
     return (
       <Card className="mx-auto max-w-lg border-violet-100 bg-gradient-to-b from-violet-50/80 to-white p-6">
@@ -189,12 +211,18 @@ export function AssessmentWizard({
         <div className="mt-6 space-y-4">
           <div>
             <Label>Дата рождения ребёнка</Label>
-            <Input
-              type="date"
-              value={birthday}
-              onChange={(e) => setBirthday(e.target.value)}
-              required
-            />
+            {babyBirthday ? (
+              <p className="mt-1.5 rounded-xl border border-violet-100 bg-violet-50/50 px-3 py-2 text-sm text-slate-700">
+                {birthday.split("-").reverse().join(".")}
+              </p>
+            ) : (
+              <Input
+                type="date"
+                value={birthday}
+                onChange={(e) => setBirthday(e.target.value)}
+                required
+              />
+            )}
           </div>
           {warning && (
             <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
@@ -276,50 +304,6 @@ export function AssessmentWizard({
         )}
         {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
       </Card>
-    );
-  }
-
-  if (phase === "payment") {
-    return (
-      <div className="mx-auto max-w-2xl space-y-6">
-        <Card className="border-violet-200 bg-gradient-to-b from-violet-50/60 to-white p-6 text-center">
-          <h2 className="text-xl font-semibold text-violet-900">
-            {isReadOnly ? "План по последней оценке" : "Тест завершён"}
-          </h2>
-          {isReadOnly && testDate && (
-            <p className="mt-1 text-sm text-violet-600">Дата теста: {testDate}</p>
-          )}
-          <p className="mt-3 text-sm text-slate-600">
-            Персональный план развития будет отправлен на вашу почту после оплаты.
-          </p>
-        </Card>
-
-        {error && <p className="text-sm text-red-600">{error}</p>}
-
-        {saved && (
-          <PlanPaymentPrompt userEmail={userEmail} onDone={onComplete} />
-        )}
-
-        <div className="flex gap-3">
-          {isReadOnly ? (
-            <>
-              <Button
-                className="flex-1 bg-violet-600 hover:bg-violet-700"
-                onClick={resetToStart}
-              >
-                Пройти тест заново
-              </Button>
-              <Button variant="secondary" onClick={onSkip}>
-                Закрыть
-              </Button>
-            </>
-          ) : (
-            <Button variant="secondary" onClick={onSkip}>
-              Пропустить
-            </Button>
-          )}
-        </div>
-      </div>
     );
   }
 

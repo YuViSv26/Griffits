@@ -48,6 +48,8 @@ async function request<T>(
 
 export interface InitResponse {
   authenticated: boolean;
+  display_name?: string;
+  login_code?: string;
   email?: string;
   registered: boolean;
   baby_name?: string;
@@ -58,9 +60,17 @@ export interface InitResponse {
 
 export interface AuthResponse {
   user_id: number;
-  email: string;
+  display_name: string;
+  login_code: string;
   access_token: string;
 }
+
+export type LoginCodeAuthPayload = {
+  login_code: string;
+  birth_day: number;
+  birth_month: number;
+  birth_year: number;
+};
 
 export interface ProfileResponse {
   baby_name: string;
@@ -209,38 +219,20 @@ export const api = {
   init: () => request<InitResponse>("/api/init"),
   me: () => request<InitResponse>("/api/me"),
 
-  register: (email: string, password: string) =>
+  register: (payload: LoginCodeAuthPayload) =>
     request<AuthResponse>("/api/auth/register", {
       method: "POST",
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify(payload),
     }),
 
-  login: (email: string, password: string) =>
+  login: (payload: LoginCodeAuthPayload) =>
     request<AuthResponse>("/api/auth/login", {
       method: "POST",
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify(payload),
     }),
 
   logout: () =>
     request<{ ok: boolean }>("/api/auth/logout", { method: "POST" }),
-
-  forgotPassword: (email: string) =>
-    request<{ message: string; email_sent: boolean; reset_url?: string | null }>(
-      "/api/auth/forgot-password",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          email,
-          reset_base_url: window.location.origin,
-        }),
-      }
-    ),
-
-  resetPassword: (token: string, password: string) =>
-    request<{ message: string }>("/api/auth/reset-password", {
-      method: "POST",
-      body: JSON.stringify({ token, password }),
-    }),
 
   saveProfile: (baby_name: string, baby_birthday: string) =>
     request<ProfileResponse>("/api/profile", {

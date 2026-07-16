@@ -7,14 +7,20 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { api, clearToken, setToken, type InitResponse } from "../api/client";
+import {
+  api,
+  clearToken,
+  setToken,
+  type InitResponse,
+  type LoginCodeAuthPayload,
+} from "../api/client";
 
 interface AuthContextValue {
   user: InitResponse | null;
   loading: boolean;
   refresh: () => Promise<void>;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
+  login: (payload: LoginCodeAuthPayload) => Promise<void>;
+  register: (payload: LoginCodeAuthPayload) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -38,8 +44,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const login = useCallback(
-    async (email: string, password: string) => {
-      const res = await api.login(email, password);
+    async (payload: LoginCodeAuthPayload) => {
+      const res = await api.login(payload);
       setToken(res.access_token);
       await refresh();
     },
@@ -47,8 +53,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const register = useCallback(
-    async (email: string, password: string) => {
-      const res = await api.register(email, password);
+    async (payload: LoginCodeAuthPayload) => {
+      const res = await api.register(payload);
       setToken(res.access_token);
       await refresh();
     },

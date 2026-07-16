@@ -45,7 +45,11 @@ async def _maybe_send_plan_pdf_email(record: PlanPayment) -> PlanPayment:
         return record
 
     user = await get_user_by_id(record.user_id)
-    if not user:
+    if not user or not user.email:
+        logger.warning(
+            "Email не указан у пользователя %s — PDF не отправлен",
+            record.user_id,
+        )
         return record
 
     try:

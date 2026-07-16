@@ -1,38 +1,37 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field, field_validator
+
+from backend.utils.name_auth import parse_birth_date
 
 
-class RegisterRequest(BaseModel):
-    email: EmailStr
-    password: str = Field(min_length=6, max_length=128)
+class LoginCodeAuthRequest(BaseModel):
+    login_code: str = Field(min_length=6, max_length=6)
+    birth_day: int = Field(ge=1, le=31)
+    birth_month: int = Field(ge=1, le=12)
+    birth_year: int = Field(ge=1920, le=2100)
+
+    @field_validator("login_code")
+    @classmethod
+    def normalize_login_code(cls, value: str) -> str:
+        code = value.strip().upper()
+        if len(code) != 6:
+            raise ValueError("ФИО должно содержать ровно 6 знаков")
+        return code
+
+    def birth_date(self):
+        return parse_birth_date(self.birth_day, self.birth_month, self.birth_year)
 
 
-class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
+class RegisterRequest(LoginCodeAuthRequest):
+    pass
+
+
+class LoginRequest(LoginCodeAuthRequest):
+    pass
 
 
 class AuthResponse(BaseModel):
     user_id: int
-    email: str
+    display_name: str
+    login_code: str
     access_token: str
     token_type: str = "bearer"
-
-
-class ForgotPasswordRequest(BaseModel):
-    email: EmailStr
-    reset_base_url: str | None = None
-
-
-class ForgotPasswordResponse(BaseModel):
-    message: str
-    email_sent: bool = False
-    reset_url: str | None = None
-
-
-class ResetPasswordRequest(BaseModel):
-    token: str = Field(min_length=10)
-    password: str = Field(min_length=6, max_length=128)
-
-
-class ResetPasswordResponse(BaseModel):
-    message: str

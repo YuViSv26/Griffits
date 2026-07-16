@@ -13,6 +13,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from backend.config import get_settings
 from backend.data.games_seed import GAMES_SEED
+from backend.utils.name_auth import parse_login_code_parts
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +28,18 @@ class Base(DeclarativeBase):
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (
+        Index("ix_users_login_birth", "login_code", "user_birthday", unique=True),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    email: Mapped[str] = mapped_column(unique=True, index=True)
-    password_hash: Mapped[str] = mapped_column()
+    first_name: Mapped[str] = mapped_column(default="")
+    patronymic: Mapped[str] = mapped_column(default="")
+    last_name: Mapped[str] = mapped_column(default="")
+    login_code: Mapped[str] = mapped_column(default="", index=True)
+    user_birthday: Mapped[date | None] = mapped_column(default=None)
+    email: Mapped[str | None] = mapped_column(default=None)
+    password_hash: Mapped[str] = mapped_column(default="")
     baby_name: Mapped[str | None] = mapped_column(default=None)
     baby_birthday: Mapped[date | None] = mapped_column(default=None)
     last_subscale: Mapped[str | None] = mapped_column(default=None)
@@ -139,6 +148,11 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
             raise
 
 
+def _internal_email(login_code: str, user_birthday: date) -> str:
+    """Синтетический email для старых БД, где email NOT NULL."""
+    return f"{login_code.lower()}+{user_birthday.isoformat()}@griffits.local"
+
+
 async def _migrate_columns() -> None:
     """Добавляет новые колонки в существующую SQLite-базу."""
     migrations = [
@@ -151,9 +165,22 @@ async def _migrate_columns() -> None:
         "ALTER TABLE skills_assessments ADD COLUMN result_eye_hand TEXT",
         "ALTER TABLE skills_assessments ADD COLUMN result_play TEXT",
         "ALTER TABLE plan_payments ADD COLUMN pdf_emailed BOOLEAN DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN first_name TEXT DEFAULT ''",
+        "ALTER TABLE users ADD COLUMN patronymic TEXT DEFAULT ''",
+        "ALTER TABLE users ADD COLUMN last_name TEXT DEFAULT ''",
+        "ALTER TABLE users ADD COLUMN login_code TEXT DEFAULT ''",
+        "ALTER TABLE users ADD COLUMN user_birthday DATE",
+    ]
+    index_migrations = [
+        "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_login_birth ON users (login_code, user_birthday)",
     ]
     async with engine.begin() as conn:
         for stmt in migrations:
+            try:
+                await conn.execute(text(stmt))
+            except Exception:
+                pass
+        for stmt in index_migrations:
             try:
                 await conn.execute(text(stmt))
             except Exception:
@@ -164,6 +191,17 @@ async def init_db() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     await _migrate_columns()
+
+
+async def get_user_by_login(login_code: str, user_birthday: date) -> User | None:
+    async with get_session() as session:
+        result = await session.execute(
+            select(User).where(
+                User.login_code == login_code.upper(),
+                User.user_birthday == user_birthday,
+            )
+        )
+        return result.scalar_one_or_none()
 
 
 async def get_user_by_email(email: str) -> User | None:
@@ -178,10 +216,53 @@ async def get_user_by_id(user_id: int) -> User | None:
         return result.scalar_one_or_none()
 
 
-async def create_user(email: str, password_hash: str) -> User:
+def _baby_profile_from_login(login_code: str, birth_date: date) -> dict:
+    first_name, patronymic, last_name = parse_login_code_parts(login_code)
+    return {
+        "first_name": first_name,
+        "patronymic": patronymic,
+        "last_name": last_name,
+        "baby_name": first_name,
+        "baby_birthday": birth_date,
+    }
+
+
+async def create_user(
+    *,
+    login_code: str,
+    user_birthday: date,
+) -> User:
+    code = login_code.upper()
+    profile = _baby_profile_from_login(code, user_birthday)
     async with get_session() as session:
-        user = User(email=email.lower(), password_hash=password_hash)
+        user = User(
+            login_code=code,
+            user_birthday=user_birthday,
+            email=_internal_email(code, user_birthday),
+            password_hash="",
+            **profile,
+        )
         session.add(user)
+        await session.flush()
+        return user
+
+
+async def sync_baby_profile_from_auth(user_id: int) -> User:
+    """Заполняет профиль ребёнка из данных регистрации (для старых аккаунтов)."""
+    async with get_session() as session:
+        result = await session.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one()
+        if not user.login_code or not user.user_birthday:
+            return user
+        profile = _baby_profile_from_login(user.login_code, user.user_birthday)
+        if not user.baby_birthday:
+            user.baby_birthday = profile["baby_birthday"]
+        if not user.baby_name:
+            user.baby_name = profile["baby_name"]
+        if not user.first_name:
+            user.first_name = profile["first_name"]
+            user.patronymic = profile["patronymic"]
+            user.last_name = profile["last_name"]
         await session.flush()
         return user
 

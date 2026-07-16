@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI):
         logger.info("SMTP настроен (%s:%s)", settings.smtp_host, settings.smtp_port)
     else:
         logger.warning(
-            "SMTP не настроен — восстановление пароля по email не будет работать. "
+            "SMTP не настроен — отправка PDF на email не будет работать. "
             "Заполните SMTP_HOST, SMTP_FROM, SMTP_USER, SMTP_PASSWORD в .env"
         )
     logger.info("Backend started: DB ready, games seeded, FRONTEND_URL=%s", settings.frontend_url)
