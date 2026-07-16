@@ -161,9 +161,7 @@ export function AssessmentWizard({
           {isReadOnly && testDate && (
             <p className="mt-1 text-sm text-violet-600">Дата теста: {testDate}</p>
           )}
-          <p className="mt-3 text-sm text-slate-600">
-            Результаты сохранены. Рекомендации по играм — в разделе «План на день».
-          </p>
+          <p className="mt-3 text-sm text-slate-600">Результаты сохранены.</p>
         </Card>
 
         {error && <p className="text-sm text-red-600">{error}</p>}

@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { AssessmentWizard } from "../components/AssessmentWizard";
 import { OnboardingForm } from "../components/OnboardingForm";
-import { ProgressPanel } from "../components/ProgressPanel";
 import { Sidebar, type Tab } from "../components/Sidebar";
 import { api } from "../api/client";
 
@@ -21,16 +20,9 @@ export function DashboardPage() {
               babyBirthday={user?.baby_birthday}
               onComplete={async () => {
                 await refresh();
-                setTab("progress");
               }}
-              onSkip={() => setTab("progress")}
+              onSkip={() => setTab("test")}
             />
-          </div>
-        );
-      case "progress":
-        return (
-          <div className="overflow-y-auto p-4 md:p-6">
-            <ProgressPanel />
           </div>
         );
       case "profile":
@@ -69,7 +61,6 @@ export function DashboardPage() {
           <header className="border-b border-slate-200 bg-white px-4 py-3 md:px-6">
             <h2 className="font-semibold">
               {tab === "test" && "Шкала Гриффитс"}
-              {tab === "progress" && "Прогресс ребёнка"}
               {tab === "profile" && "Данные ребёнка"}
             </h2>
           </header>
