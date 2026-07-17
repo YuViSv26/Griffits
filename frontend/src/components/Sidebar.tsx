@@ -1,19 +1,10 @@
-type Tab = "test" | "profile";
-
 interface Props {
-  active: Tab;
-  onChange: (tab: Tab) => void;
   babyName?: string;
   ageLabel?: string;
   onLogout: () => void;
 }
 
-const items: { id: Tab; label: string; icon: string }[] = [
-  { id: "test", label: "Шкала Гриффитс", icon: "📋" },
-  { id: "profile", label: "Профиль", icon: "✏️" },
-];
-
-export function Sidebar({ active, onChange, babyName, ageLabel, onLogout }: Props) {
+export function Sidebar({ babyName, ageLabel, onLogout }: Props) {
   return (
     <aside className="flex w-full flex-col border-r border-slate-200 bg-white md:w-64 md:min-h-screen">
       <div className="border-b border-slate-200 p-4">
@@ -26,23 +17,7 @@ export function Sidebar({ active, onChange, babyName, ageLabel, onLogout }: Prop
           </div>
         )}
       </div>
-      <nav className="flex flex-1 gap-1 overflow-x-auto p-2 md:flex-col md:overflow-visible">
-        {items.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => onChange(item.id)}
-            className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm transition md:w-full ${
-              active === item.id
-                ? "bg-brand-600 text-white"
-                : "text-slate-700 hover:bg-slate-100"
-            }`}
-          >
-            <span>{item.icon}</span>
-            <span className="whitespace-nowrap">{item.label}</span>
-          </button>
-        ))}
-      </nav>
+      <div className="flex-1" />
       <div className="border-t border-slate-200 p-3">
         <button
           type="button"
@@ -55,5 +30,3 @@ export function Sidebar({ active, onChange, babyName, ageLabel, onLogout }: Prop
     </aside>
   );
 }
-
-export type { Tab };
